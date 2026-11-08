@@ -27,5 +27,8 @@
       "src/**/*.js"
     ],
     "coverageDirectory": "coverage"
+  },
+  "overrides": {
+    "body-parser": "1.20.9"
   }
 }
