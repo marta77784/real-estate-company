@@ -12,8 +12,8 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  ECR_FRONTEND: real-estate-company-frontend
-  ECR_BACKEND: real-estate-company-backend
+  ECR_FRONTEND: real-estate-frontend
+  ECR_BACKEND: real-estate-backend
 
 jobs:
 
