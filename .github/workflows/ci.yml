@@ -1,27 +1,21 @@
-name: Real Estate Company CI/CD
+name: Real Estate Company CI
 
 on:
   pull_request:
-    branches:
-      - main
-
+    branches: [main]
   push:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: us-east-2
   ECR_FRONTEND: real-estate-company-frontend
   ECR_BACKEND: real-estate-company-backend
 
 jobs:
-
-  # ============================================
-  # JOB 1 - FRONTEND
-  # ============================================
   frontend:
     name: Frontend - Lint and Build
     runs-on: ubuntu-latest
@@ -34,25 +28,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install frontend dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Lint frontend
+      - name: Run ESLint
         run: npm run lint
 
       - name: Build frontend
         run: npm run build
 
-  # ============================================
-  # JOB 2 - BACKEND
-  # ============================================
   backend:
     name: Backend - Lint and Test
     runs-on: ubuntu-latest
@@ -65,25 +56,22 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
-      - name: Install backend dependencies
+      - name: Install dependencies
         run: npm ci
 
-      - name: Lint backend
+      - name: Run ESLint
         run: npm run lint
 
-      - name: Run backend tests
-        run: npm test
+      - name: Run unit tests
+        run: npm test -- --ci --watch=false
 
-  # ============================================
-  # JOB 3 - SECURITY
-  # ============================================
   security:
     name: Security - Trivy Filesystem Scan
     runs-on: ubuntu-latest
@@ -92,55 +80,48 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run Trivy filesystem scan
-        uses: aquasecurity/trivy-action@v0.33.1
+      - name: Run Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           scan-type: fs
           scan-ref: .
           scanners: vuln
-          format: table
           severity: HIGH,CRITICAL
-          exit-code: '0'
+          exit-code: "1"
           ignore-unfixed: true
 
-  # ============================================
-  # JOB 4 - DOCKER BUILD AND PUSH TO ECR
-  # ============================================
-  docker:
+  publish:
     name: Docker Build and Push to ECR
     runs-on: ubuntu-latest
+    needs: [frontend, backend, security]
 
-    needs:
-      - frontend
-      - backend
-      - security
-
-    # Publish only after changes reach main.
-    # Pull requests run CI checks, not ECR publishing.
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     permissions:
-      contents: read
       id-token: write
+      contents: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials with OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Setup Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push frontend image
+      - name: Build and push frontend images
         uses: docker/build-push-action@v6
         with:
           context: ./frontend
@@ -149,7 +130,7 @@ jobs:
           platforms: linux/amd64
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_FRONTEND }}:${{ github.sha }}
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_FRONTEND }}:latest
+          provenance: false
 
       - name: Build and push backend image
         uses: docker/build-push-action@v6
@@ -160,14 +141,11 @@ jobs:
           platforms: linux/amd64
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_BACKEND }}:${{ github.sha }}
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_BACKEND }}:latest
+          provenance: false
 
       - name: Print image references
         run: |
           echo "Frontend image:"
           echo "${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_FRONTEND }}:${{ github.sha }}"
-
           echo "Backend image:"
           echo "${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_BACKEND }}:${{ github.sha }}"
-
-          echo "Docker images pushed to Amazon ECR."
