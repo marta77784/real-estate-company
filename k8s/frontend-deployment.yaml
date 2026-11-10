@@ -17,9 +17,10 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: real-estate-company-frontend:latest
+          image: 558307270731.dkr.ecr.us-east-1.amazonaws.com/real-estate-frontend         
           ports:
-            - containerPort: 80
+        
+           - containerPort: 80
           readinessProbe:
             httpGet:
               path: /health
