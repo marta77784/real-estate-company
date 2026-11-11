@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: real-estate-company-backend:latest
+          image: 558307270731.dkr.ecr.us-east-1.amazonaws.com/real-estate-backend:latest
           ports:
             - containerPort: 4000
           env:
