@@ -6,7 +6,7 @@ metadata:
   labels:
     app: backend
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: backend
@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: real-estate-company-backend:latest
+          image: 558307270731.dkr.ecr.us-east-1.amazonaws.com/real-estate-backend:cba6de9e83ef7124e5ac03ea5453e4c8fa159c60
           ports:
             - containerPort: 4000
           env:
